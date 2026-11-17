@@ -1,7 +1,19 @@
-# 26-27 Assignment template
+# 제출 기한
 
-## 사용하는 방법
+11월 23일 월요일 오후 11시 59분까지 제출
 
-1. 레포를 생성할 때 해당 템플릿을 선택합니다.
-2. `.github/CODEOWNER`에 해당 파트 Core 멤버만 남깁니다.
-3. [`Auto assign`](https://github.com/apps/auto-assign) 앱을 등록합니다.
+# 제출 방법
+## *지난 주차 과제 작업한 본인 폴더에서 제출합니다*
+
+### 1. `git remote remove origin` 
+- 지난 주차 과제 저장소 삭제
+
+### 2. `git remote add origin [포크한 본인의 05 저장소]`
+
+### 3. `git remote -v` 로 바뀐 저장소 확인
+
+### 4. `git pull origin main --allow-unrelated-histories`
+
+- 리드미 충돌 생길 텐데, 리드미 파일에 가서 제일 윗줄에 **Accept Incoming Change** 클릭
+
+### 5. 작업 마치고 변경 사항 커밋한 후, 기존에 하던 대로 제출
