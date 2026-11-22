@@ -1,0 +1,48 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "userId": "test1234",
+      "password": "password1234",
+      "track": "frontend"
+    },
+    {
+      "id": 2,
+      "userId": "test5678",
+      "password": "password5678",
+      "track": "backend"
+    }
+  ],
+  "todos": [
+    {
+      "id": 1,
+      "ownerId": 1,
+      "text": "리액트 복습하기",
+      "done": true
+    },
+    {
+      "id": 2,
+      "ownerId": 1,
+      "text": "Axios 과제 하기",
+      "done": false
+    },
+    {
+      "id": 3,
+      "ownerId": 1,
+      "text": "타입스크립트 정리하기",
+      "done": false
+    },
+    {
+      "id": 4,
+      "ownerId": 2,
+      "text": "Express 서버 공부하기",
+      "done": false
+    },
+    {
+      "id": 5,
+      "ownerId": 2,
+      "text": "DB 설계 연습하기",
+      "done": false
+    }
+  ]
+}
