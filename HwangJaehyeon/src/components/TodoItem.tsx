@@ -14,7 +14,7 @@ const Item = styled.li`
   border-bottom: 1px solid #e0e5ef;
 `;
 
-const ToggleButton = styled(Button)<{ $done: boolean }>`
+const ToggleButton = styled(Button) <{ $done: boolean }>`
   /* $done은 스타일에만 쓰는 transient prop. */
   flex-shrink: 0;
   width: 32px;
@@ -62,14 +62,18 @@ export default function TodoItem({ todo }: TodoItemProps) {
     setIsEditing(true);
   }
 
-  function handleSave(event: SyntheticEvent<HTMLFormElement>) {
+  async function handleSave(
+    event: SyntheticEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
-
     const text = draft.trim();
     if (text === '') return;
 
-    editTodo(todo.id, text);
-    setIsEditing(false);
+    const success = await editTodo(todo.id, text);
+
+    if (success) {
+      setIsEditing(false);
+    }
   }
 
   return (
