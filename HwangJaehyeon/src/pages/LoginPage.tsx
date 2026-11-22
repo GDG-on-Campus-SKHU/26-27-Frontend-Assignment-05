@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, SyntheticEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { fakeLoginApi } from '../api/auth';
+import { loginApi } from '../api/auth'; // loginAPI를 사용하기 위해 수정
 import { useAuthStore } from '../stores/useAuthStore';
 import { Card, TextInput } from '../components/ui';
 import { Form, Field, SubmitButton, ErrorMessage } from '../components/formStyles';
@@ -20,27 +20,46 @@ export default function LoginPage() {
     setValues((previous) => ({ ...previous, [name]: value }));
   }
 
-  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
+  // API로의 통신을 위한 handleSubmit 함수 변경
+  async function handleSubmit(
+    event: SyntheticEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     if (pending) return;
+
     setPending(true);
     setError('');
+
     try {
-      fakeLoginApi(values.userId, values.password).then(({ user, accessToken }) => {
-        remember ? localStorage.setItem('saved-user-id', values.userId) : localStorage.removeItem('saved-user-id');
-        login(user, accessToken);
-        navigate('/todos/all', { replace: true });
-      }).catch((err) => {
-        setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
-        setValues((previous) => ({ ...previous, password: '' }));
-        passwordInput.current?.focus();
-      }).finally(() => {
-        setPending(false);
-      });
+      const { user, accessToken } = await loginApi(
+        values.userId,
+        values.password
+      );
+
+      remember
+        ? localStorage.setItem('saved-user-id', values.userId)
+        : localStorage.removeItem('saved-user-id');
+
+      login(user, accessToken);
+
+      navigate('/todos/all', { replace: true });
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
-      setValues((previous) => ({ ...previous, password: '' }));
+      setError(
+        err instanceof Error
+          ? err.message
+          : '로그인에 실패했습니다.'
+      );
+
+      setValues((previous) => ({
+        ...previous,
+        password: ''
+      }));
+
       passwordInput.current?.focus();
+
+    } finally {
       setPending(false);
     }
   }

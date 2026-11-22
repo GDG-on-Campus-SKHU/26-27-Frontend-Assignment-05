@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, SyntheticEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { fakeSignupApi } from '../api/auth';
+import { signupApi } from '../api/auth'; // API 사용을 위해 변경
 import { useAuthStore } from '../stores/useAuthStore';
 import { Form, Field, Interests, SubmitButton, ErrorMessage } from '../components/formStyles';
 import { Link } from 'react-router';
@@ -47,7 +47,11 @@ export default function SignupPage() {
     setPending(true);
     setError('');
     try {
-      const { user, accessToken } = await fakeSignupApi(values.username, values.password, values.interest);
+      const { user, accessToken } = await signupApi(
+  values.username,
+  values.password,
+  values.interest
+);
       window.alert(`${user.userId}님, 가입을 환영합니다!`);
       login(user, accessToken);
       navigate('/todos/all', { replace: true });
