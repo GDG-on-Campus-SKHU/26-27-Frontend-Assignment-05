@@ -5,3 +5,9 @@ export interface User {
   userId: string;
   track: Track;
 }
+
+// data(API) 요청을 위한 type 추가
+export interface AuthResponse {
+  user: User;
+  accessToken: string;
+}
