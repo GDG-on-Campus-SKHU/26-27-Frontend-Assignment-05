@@ -1,58 +1,169 @@
-import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Todo } from '../types';
 import { TodoContext } from './todoContextValue';
 
-function loadTodos(key: string): Todo[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(key) ?? '[]');
-    if (Array.isArray(value) && value.every((item: unknown) =>
-      typeof item === 'object' && item !== null &&
-      'id' in item && typeof item.id === 'number' && Number.isFinite(item.id) &&
-      'text' in item && typeof item.text === 'string' &&
-      'done' in item && typeof item.done === 'boolean') &&
-      new Set(value.map((item) => item.id)).size === value.length) {
-      return value;
+// 추가
+import { useAxios } from '../hooks/useAxios';
+import { axiosInstance } from '../api/axiosInstance';
+
+export default function TodoProvider({
+  children
+}: {
+  children: ReactNode
+}) {
+  const {
+    data: todos,
+    setData: setTodos,
+    error,
+    isLoading
+  } = useAxios<Todo[]>('/todos', []);
+
+  // 공통 오류 처리 함수 추가
+  function handleError(err: unknown) {
+    window.alert(
+      err instanceof Error
+        ? err.message
+        : '요청에 실패했습니다.'
+    );
+  }
+
+  // 할 일 추가
+  async function addTodo(input: string): Promise<boolean> {
+    const text = input.trim();
+
+    if (!text) return false;
+
+    try {
+      const response = await axiosInstance.post<Todo>(
+        '/todos',
+        { text }
+      );
+
+      setTodos((previous) => [
+        ...previous,
+        response.data
+      ]);
+
+      return true;
+
+    } catch (err) {
+      handleError(err);
+      return false;
     }
-  } catch {
-    // 저장된 JSON이 깨져 있어도 할 일 화면은 빈 목록으로 열 수 있다.
   }
-  return [];
-}
 
-export default function TodoProvider({ userId, children }: { userId: number; children: ReactNode }) {
-  const key = `todos-${userId}`;
-  const [todos, setTodos] = useState<Todo[]>(() => loadTodos(key));
+  // 완료 상태 변경
+  async function toggleTodo(id: number): Promise<boolean> {
+    try {
+      const response = await axiosInstance.patch<Todo>(
+        `/todos/${id}/done`
+      );
 
-  useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(todos));
-  }, [key, todos]);
+      setTodos((previous) =>
+        previous.map((todo) =>
+          todo.id === id ? response.data : todo
+        )
+      );
 
-  function addTodo(input: string) {
+      return true;
+
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
+  }
+
+  // 할 일 수정
+  async function editTodo(
+    id: number,
+    input: string
+  ): Promise<boolean> {
     const text = input.trim();
-    if (!text) return;
-    setTodos((previous) => {
-      // 같은 밀리초에 추가해도 React key가 중복되지 않도록 한다.
-      const id = Math.max(Date.now(), ...previous.map((todo) => todo.id + 1));
-      return [...previous, { id, text, done: false }];
-    });
+
+    if (!text) return false;
+
+    try {
+      const response = await axiosInstance.put<Todo>(
+        `/todos/${id}`,
+        { text }
+      );
+
+      setTodos((previous) =>
+        previous.map((todo) =>
+          todo.id === id ? response.data : todo
+        )
+      );
+
+      return true;
+
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
   }
-  function toggleTodo(id: number) {
-    setTodos((previous) => previous.map((todo) => todo.id === id ? { ...todo, done: !todo.done } : todo));
+
+  // 할 일 삭제
+  async function deleteTodo(id: number): Promise<boolean> {
+    try {
+      await axiosInstance.delete<void>(
+        `/todos/${id}`
+      );
+
+      setTodos((previous) =>
+        previous.filter((todo) => todo.id !== id)
+      );
+
+      return true;
+
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
   }
-  function editTodo(id: number, input: string) {
-    const text = input.trim();
-    if (!text) return;
-    setTodos((previous) => previous.map((todo) => todo.id === id ? { ...todo, text } : todo));
-  }
-  function deleteTodo(id: number) {
-    setTodos((previous) => previous.filter((todo) => todo.id !== id));
-  }
+
+  // 이름순 정렬 (기존 코드 유지)
   function sortTodos() {
-    setTodos((previous) => [...previous].sort((a, b) => a.text.localeCompare(b.text, 'ko')));
+    setTodos((previous) =>
+      [...previous].sort((a, b) =>
+        a.text.localeCompare(b.text, 'ko')
+      )
+    );
   }
-  function clearDoneTodos() {
-    setTodos((previous) => previous.filter((todo) => !todo.done));
+
+  // 완료한 할 일 모두 삭제
+  async function clearDoneTodos(): Promise<boolean> {
+    try {
+      await axiosInstance.delete<void>(
+        '/todos/completed'
+      );
+
+      setTodos((previous) =>
+        previous.filter((todo) => !todo.done)
+      );
+
+      return true;
+
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
   }
-  return <TodoContext.Provider value={{ todos, addTodo, toggleTodo, editTodo, deleteTodo, sortTodos, clearDoneTodos }}>{children}</TodoContext.Provider>;
+
+  return (
+    <TodoContext.Provider
+      value={{
+        todos,
+        isLoading,
+        error,
+        addTodo,
+        toggleTodo,
+        editTodo,
+        deleteTodo,
+        sortTodos,
+        clearDoneTodos
+      }}
+    >
+      {children}
+    </TodoContext.Provider>
+  );
 }

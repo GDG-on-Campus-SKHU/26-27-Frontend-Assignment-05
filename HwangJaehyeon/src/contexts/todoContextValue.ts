@@ -3,13 +3,21 @@ import type { Todo } from '../types';
 
 interface TodoContextValue {
   todos: Todo[];
-  addTodo: (text: string) => void;
-  toggleTodo: (id: number) => void;
-  editTodo: (id: number, text: string) => void;
-  deleteTodo: (id: number) => void;
+
+  // 추가
+  isLoading: boolean;
+  error: string;
+
+  // 반환 타입 수정
+  addTodo: (text: string) => Promise<boolean>;
+  toggleTodo: (id: number) => Promise<boolean>;
+  editTodo: (id: number, text: string) => Promise<boolean>;
+  deleteTodo: (id: number) => Promise<boolean>;
+  clearDoneTodos: () => Promise<boolean>;
+
+  // 기존 유지(요청하지는 않으므로 void 유지)
   sortTodos: () => void;
-  clearDoneTodos: () => void;
 }
 
-export const TodoContext = createContext<TodoContextValue | undefined>(undefined);
-
+export const TodoContext =
+  createContext<TodoContextValue | undefined>(undefined);
