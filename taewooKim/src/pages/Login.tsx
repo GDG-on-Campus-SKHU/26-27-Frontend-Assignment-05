@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router';
-import { fakeLoginApi } from '../api/auth';
+import { loginApi } from '../api/auth';
 import { useAuthStore } from '../stores/useAuthStore';
 import {
   Title,
@@ -40,7 +40,7 @@ export default function Login() {
     setError('');
     setIsSubmitting(true);
     try {
-      const { user, accessToken } = await fakeLoginApi(formState.userId, formState.password);
+      const { user, accessToken } = await loginApi(formState.userId, formState.password);
       if (formState.saveId) {
         localStorage.setItem('saved-user-id', formState.userId);
       } else {

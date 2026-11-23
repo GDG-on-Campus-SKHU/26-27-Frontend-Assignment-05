@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router';
-import { fakeSignupApi } from '../api/auth';
+import { checkIdApi, signupApi } from '../api/auth';
 import type { Track } from '../types/user';
 import { useAuthStore } from '../stores/useAuthStore';
 import {
@@ -10,6 +10,9 @@ import {
   Field,
   Label,
   Input,
+  InputRow,
+  CheckButton,
+  CheckMessage,
   Hint,
   Fieldset,
   OptionLabel,
@@ -40,12 +43,39 @@ export default function Signup() {
   const [formState, setFormState] = useState(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // null이면 아직 중복 확인을 하지 않은 상태
+  const [idCheck, setIdCheck] = useState<{ available: boolean; message: string } | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
   const userIdRef = useRef<HTMLInputElement>(null);
   const passwordConfirmRef = useRef<HTMLInputElement>(null);
   const login = useAuthStore((state) => state.login);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFormState((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    // 아이디를 고치면 확인 결과를 지운다.
+    if (e.target.name === 'userId') setIdCheck(null);
+  };
+
+  const handleCheckId = async () => {
+    if (isChecking) return;
+
+    setError('');
+    setIsChecking(true);
+    try {
+      const available = await checkIdApi(formState.userId);
+      if (available) {
+        setIdCheck({ available: true, message: '사용할 수 있는 아이디입니다.' });
+      } else {
+        setIdCheck({ available: false, message: '이미 사용 중인 아이디입니다.' });
+      }
+    } catch (err) {
+      setIdCheck({
+        available: false,
+        message: err instanceof Error ? err.message : '아이디를 확인하지 못했습니다.',
+      });
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   // 체크박스는 value가 아니라 checked를 읽는다.
@@ -58,6 +88,12 @@ export default function Signup() {
     if (isSubmitting || !formState.agree) return;
     setError('');
 
+    if (!idCheck?.available) {
+      setError('아이디 중복 확인을 해 주세요.');
+      userIdRef.current?.focus();
+      return;
+    }
+
     if (formState.password !== formState.passwordConfirm) {
       alert('비밀번호가 일치하지 않습니다.');
       passwordConfirmRef.current?.focus();
@@ -66,7 +102,7 @@ export default function Signup() {
 
     setIsSubmitting(true);
     try {
-      const { user, accessToken } = await fakeSignupApi(
+      const { user, accessToken } = await signupApi(
         formState.userId,
         formState.password,
         formState.track,
@@ -89,21 +125,36 @@ export default function Signup() {
       <Form onSubmit={submitHandler} aria-busy={isSubmitting}>
         <Field>
           <Label htmlFor="userId">아이디</Label>
-          <Input
-            ref={userIdRef}
-            type="text"
-            id="userId"
-            name="userId"
-            autoComplete="username"
-            placeholder="영문, 숫자 4~12자"
-            value={formState.userId}
-            onChange={handleChange}
-            required
-            minLength={4}
-            maxLength={12}
-            pattern="[A-Za-z0-9]{4,12}"
-            title="4~12자의 영문과 숫자만 사용할 수 있습니다."
-          />
+          <InputRow>
+            <Input
+              ref={userIdRef}
+              type="text"
+              id="userId"
+              name="userId"
+              autoComplete="username"
+              placeholder="영문, 숫자 4~12자"
+              value={formState.userId}
+              onChange={handleChange}
+              readOnly={isChecking}
+              required
+              minLength={4}
+              maxLength={12}
+              pattern="[A-Za-z0-9]{4,12}"
+              title="4~12자의 영문과 숫자만 사용할 수 있습니다."
+            />
+            <CheckButton
+              type="button"
+              onClick={handleCheckId}
+              disabled={isChecking || formState.userId === ''}
+            >
+              {isChecking ? '확인 중...' : '중복 확인'}
+            </CheckButton>
+          </InputRow>
+          {idCheck && (
+            <CheckMessage $available={idCheck.available} role="status">
+              {idCheck.message}
+            </CheckMessage>
+          )}
         </Field>
 
         <Field>

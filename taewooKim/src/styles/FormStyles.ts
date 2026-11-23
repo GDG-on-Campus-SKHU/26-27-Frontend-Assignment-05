@@ -41,6 +41,39 @@ export const Input = styled.input`
   }
 `;
 
+export const InputRow = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+export const CheckButton = styled.button`
+  flex: none;
+  padding: 10px 14px;
+  border: 1px solid #4a7dff;
+  border-radius: 8px;
+  background-color: white;
+  color: #315bbd;
+  font-weight: bold;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background-color: #f0f4ff;
+  }
+
+  &:disabled {
+    border-color: #d1d5db;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+`;
+
+export const CheckMessage = styled.span<{ $available: boolean }>`
+  font-size: 13px;
+  color: ${({ $available }) => ($available ? '#1f9d55' : '#d32f3c')};
+`;
+
 export const Hint = styled.span`
   font-size: 13px;
   color: #6b7280;

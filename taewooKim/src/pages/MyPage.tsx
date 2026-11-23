@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import styled from 'styled-components';
+import { updateTrackApi } from '../api/auth';
 import { useAuthStore } from '../stores/useAuthStore';
 import type { Track } from '../types/user';
-import { Title, Form, Fieldset, OptionLabel, SubmitButton } from '../styles/FormStyles';
+import {
+  Title,
+  Form,
+  Fieldset,
+  OptionLabel,
+  SubmitButton,
+  ErrorMessage,
+} from '../styles/FormStyles';
 
 const Profile = styled.dl`
   display: grid;
@@ -31,14 +39,25 @@ export default function MyPage() {
   const user = useAuthStore((state) => state.user);
   const updateTrack = useAuthStore((state) => state.updateTrack);
   const [track, setTrack] = useState<Track>(() => user?.track ?? 'frontend');
-  const canSave = user !== null && track !== user.track;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const canSave = user !== null && track !== user.track && !isSubmitting;
 
-  const submitHandler = (e: FormEvent<HTMLFormElement>) => {
+  const submitHandler = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSave) return;
 
-    updateTrack(track);
-    alert('관심 분야를 변경했습니다.');
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const updatedUser = await updateTrackApi(track);
+      updateTrack(updatedUser.track);
+      alert('관심 분야를 변경했습니다.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '관심 분야를 변경하지 못했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -50,7 +69,7 @@ export default function MyPage() {
         <dt>관심 분야</dt>
         <dd>{user?.track === 'frontend' ? '프론트엔드' : '백엔드'}</dd>
       </Profile>
-      <Form onSubmit={submitHandler}>
+      <Form onSubmit={submitHandler} aria-busy={isSubmitting}>
         <Fieldset>
           <legend>관심 분야 변경</legend>
           <OptionLabel>
@@ -75,9 +94,10 @@ export default function MyPage() {
           </OptionLabel>
         </Fieldset>
         <SubmitButton type="submit" $active={canSave} disabled={!canSave}>
-          저장
+          {isSubmitting ? '저장 중...' : '저장'}
         </SubmitButton>
       </Form>
+      {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
     </section>
   );
 }
