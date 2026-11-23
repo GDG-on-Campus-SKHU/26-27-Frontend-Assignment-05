@@ -1,57 +1,94 @@
-import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Todo } from '../types';
 import { TodoContext } from './TodoContext';
-import { loadTodos } from '../utils/todoStorage';
+import { axiosInstance } from '../api/axiosInstance';
+import { useAxios } from '../hooks/useAxios';
 
 interface TodoProviderProps {
-  userId: number;
   children: ReactNode;
 }
 
-export default function TodoProvider({ userId, children }: TodoProviderProps) {
-  const storageKey = `todos-${userId}`;
-  // 먼저 저장된 목록을 읽어야 첫 렌더링에서 빈 배열로 덮어쓰지 않는다.
-  const [todos, setTodos] = useState<Todo[]>(() => loadTodos(storageKey));
+function alertError(e: unknown) {
+  alert(e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다.');
+}
 
-  useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(todos));
-  }, [storageKey, todos]);
+export default function TodoProvider({ children }: TodoProviderProps) {
+  const { data: todos, setData: setTodos, error, isLoading } = useAxios<Todo[]>('/todos', []);
 
-  const addTodo = (text: string) => {
-    const trimmed = text.trim();
-    if (trimmed === '') return;
-
-    const newTodo: Todo = { id: Date.now(), text: trimmed, done: false };
-    setTodos((prev) => [...prev, newTodo]);
+  // 성공하면 다시 GET 하지 않고 응답으로 목록만 고친다.
+  const addTodo = async (text: string) => {
+    try {
+      const response = await axiosInstance.post<Todo>('/todos', { text: text.trim() });
+      setTodos((prev) => [...prev, response.data]);
+      return true;
+    } catch (e) {
+      alertError(e);
+      return false;
+    }
   };
 
-  const toggleTodo = (id: number) => {
-    setTodos((prev) => prev.map((todo) => (todo.id === id ? { ...todo, done: !todo.done } : todo)));
+  const toggleTodo = async (id: number) => {
+    try {
+      const response = await axiosInstance.patch<Todo>(`/todos/${id}/done`);
+      setTodos((prev) => prev.map((todo) => (todo.id === id ? response.data : todo)));
+      return true;
+    } catch (e) {
+      alertError(e);
+      return false;
+    }
   };
 
-  const editTodo = (id: number, text: string) => {
-    const trimmed = text.trim();
-    if (trimmed === '') return;
-
-    setTodos((prev) => prev.map((todo) => (todo.id === id ? { ...todo, text: trimmed } : todo)));
+  const editTodo = async (id: number, text: string) => {
+    try {
+      const response = await axiosInstance.put<Todo>(`/todos/${id}`, { text: text.trim() });
+      setTodos((prev) => prev.map((todo) => (todo.id === id ? response.data : todo)));
+      return true;
+    } catch (e) {
+      alertError(e);
+      return false;
+    }
   };
 
-  const deleteTodo = (id: number) => {
-    setTodos((prev) => prev.filter((todo) => todo.id !== id));
+  const deleteTodo = async (id: number) => {
+    try {
+      await axiosInstance.delete<void>(`/todos/${id}`);
+      setTodos((prev) => prev.filter((todo) => todo.id !== id));
+      return true;
+    } catch (e) {
+      alertError(e);
+      return false;
+    }
   };
 
+  const clearDone = async () => {
+    try {
+      await axiosInstance.delete<void>('/todos/completed');
+      setTodos((prev) => prev.filter((todo) => !todo.done));
+      return true;
+    } catch (e) {
+      alertError(e);
+      return false;
+    }
+  };
+
+  // 정렬은 요청 없이 화면에서만 바꾼다.
   const sortTodos = () => {
     setTodos((prev) => [...prev].sort((a, b) => a.text.localeCompare(b.text, 'ko')));
   };
 
-  const clearDone = () => {
-    setTodos((prev) => prev.filter((todo) => !todo.done));
-  };
-
   return (
     <TodoContext.Provider
-      value={{ todos, addTodo, toggleTodo, editTodo, deleteTodo, sortTodos, clearDone }}
+      value={{
+        todos,
+        isLoading,
+        error,
+        addTodo,
+        toggleTodo,
+        editTodo,
+        deleteTodo,
+        clearDone,
+        sortTodos,
+      }}
     >
       {children}
     </TodoContext.Provider>
