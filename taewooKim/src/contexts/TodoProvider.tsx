@@ -60,7 +60,7 @@ export default function TodoProvider({ children }: TodoProviderProps) {
     }
   };
 
-  const clearDone = async () => {
+  const clearCompleted = async () => {
     try {
       await axiosInstance.delete<void>('/todos/completed');
       setTodos((prev) => prev.filter((todo) => !todo.done));
@@ -86,7 +86,7 @@ export default function TodoProvider({ children }: TodoProviderProps) {
         toggleTodo,
         editTodo,
         deleteTodo,
-        clearDone,
+        clearCompleted,
         sortTodos,
       }}
     >

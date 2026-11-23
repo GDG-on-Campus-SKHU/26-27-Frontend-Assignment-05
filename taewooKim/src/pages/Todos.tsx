@@ -179,7 +179,7 @@ const ClearButton = styled.button`
 `;
 
 export default function Todos() {
-  const { todos, isLoading, error, sortTodos, clearDone } = useTodos();
+  const { todos, isLoading, error, sortTodos, clearCompleted } = useTodos();
   const [isClearing, setIsClearing] = useState(false);
   // 필터는 state가 아니라 URL의 :filter 값으로 정한다 (/todos/done → 'done')
   const params = useParams();
@@ -225,7 +225,7 @@ export default function Todos() {
 
   const handleClearDone = async () => {
     setIsClearing(true);
-    await clearDone(); // 실패하면 Context에서 경고창을 띄운다
+    await clearCompleted(); // 실패하면 Context에서 경고창을 띄운다
     setIsClearing(false);
   };
 

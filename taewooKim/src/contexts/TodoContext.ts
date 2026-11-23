@@ -10,7 +10,7 @@ interface TodoContextValue {
   toggleTodo: (id: number) => Promise<boolean>;
   editTodo: (id: number, text: string) => Promise<boolean>;
   deleteTodo: (id: number) => Promise<boolean>;
-  clearDone: () => Promise<boolean>;
+  clearCompleted: () => Promise<boolean>;
   sortTodos: () => void;
 }
 
