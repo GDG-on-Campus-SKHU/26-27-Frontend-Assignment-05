@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import styled from 'styled-components';
 import { useAuthStore } from '../stores/useAuthStore';
+import TodoSummary from '../components/TodoSummary';
 
 const Title = styled.h1`
   margin: 0 0 8px;
@@ -62,6 +63,7 @@ export default function Home() {
           )}
         </Description>
       </Intro>
+      {user && <TodoSummary />}
       <Links>
         {user ? (
           <ActionLink to="/todos/all">할 일 관리하기</ActionLink>
