@@ -27,8 +27,13 @@ const CheckButton = styled.button<{ $done: boolean }>`
   cursor: pointer;
   transition: background-color 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #eef2ff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   ${({ $done }) =>
@@ -36,7 +41,7 @@ const CheckButton = styled.button<{ $done: boolean }>`
     css`
       background-color: #4a7dff;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background-color: #3366e6;
       }
     `}
@@ -85,7 +90,7 @@ const Button = styled.button<{ $danger?: boolean }>`
   cursor: pointer;
   transition: background-color 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #f3f4f6;
   }
 
@@ -95,10 +100,16 @@ const Button = styled.button<{ $danger?: boolean }>`
       border-color: #ff8a8a;
       color: #e5484d;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background-color: #fff1f1;
       }
     `}
+
+  &:disabled {
+    border-color: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
 `;
 
 interface TodoItemProps {
@@ -109,6 +120,8 @@ export default function TodoItem({ todo }: TodoItemProps) {
   const { toggleTodo, editTodo, deleteTodo } = useTodos();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
+  // 요청이 끝날 때까지 이 항목의 버튼을 막는다
+  const [isPending, setIsPending] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // 입력창이 화면에 나타난 뒤에 커서를 옮긴다
@@ -125,15 +138,32 @@ export default function TodoItem({ todo }: TodoItemProps) {
     setEditText(e.target.value);
   };
 
-  // 입력 UI는 여기서 처리하고, 내용 검사와 목록 변경은 Context가 맡는다.
-  const submitHandler = (e: FormEvent<HTMLFormElement>) => {
+  const handleToggle = async () => {
+    setIsPending(true);
+    await toggleTodo(todo.id);
+    setIsPending(false);
+  };
+
+  const handleDelete = async () => {
+    setIsPending(true);
+    const isDeleted = await deleteTodo(todo.id);
+    // 성공하면 항목이 사라지므로 실패했을 때만 다시 푼다
+    if (!isDeleted) setIsPending(false);
+  };
+
+  // 입력 UI는 여기서 처리하고, 서버 요청과 목록 변경은 Context가 맡는다.
+  const submitHandler = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isPending) return;
     if (editText.trim() === '') {
       editInputRef.current?.focus();
       return;
     }
-    editTodo(todo.id, editText);
-    setIsEditing(false);
+
+    setIsPending(true);
+    const isSaved = await editTodo(todo.id, editText);
+    setIsPending(false);
+    if (isSaved) setIsEditing(false);
   };
 
   if (isEditing) {
@@ -142,7 +172,7 @@ export default function TodoItem({ todo }: TodoItemProps) {
         <EditForm
           onSubmit={submitHandler}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') setIsEditing(false);
+            if (e.key === 'Escape' && !isPending) setIsEditing(false);
           }}
         >
           <EditInput
@@ -152,8 +182,10 @@ export default function TodoItem({ todo }: TodoItemProps) {
             value={editText}
             onChange={handleChange}
           />
-          <Button type="submit">저장</Button>
-          <Button type="button" onClick={() => setIsEditing(false)}>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? '저장 중...' : '저장'}
+          </Button>
+          <Button type="button" onClick={() => setIsEditing(false)} disabled={isPending}>
             취소
           </Button>
         </EditForm>
@@ -168,15 +200,16 @@ export default function TodoItem({ todo }: TodoItemProps) {
         $done={todo.done}
         aria-label={todo.done ? '완료 취소' : '완료'}
         aria-pressed={todo.done}
-        onClick={() => toggleTodo(todo.id)}
+        onClick={handleToggle}
+        disabled={isPending}
       >
         {todo.done && '✓'}
       </CheckButton>
       <Text $done={todo.done}>{todo.text}</Text>
-      <Button type="button" onClick={handleEditClick}>
+      <Button type="button" onClick={handleEditClick} disabled={isPending}>
         수정
       </Button>
-      <Button type="button" $danger onClick={() => deleteTodo(todo.id)}>
+      <Button type="button" $danger onClick={handleDelete} disabled={isPending}>
         삭제
       </Button>
     </Item>

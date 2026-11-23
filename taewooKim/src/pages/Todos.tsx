@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import styled from 'styled-components';
@@ -6,6 +6,7 @@ import type { Filter } from '../types';
 import { useTodos } from '../hooks/useTodos';
 import TodoAddForm from '../components/TodoAddForm';
 import TodoItem from '../components/TodoItem';
+import { LoadingMessage, LoadError } from '../styles/StatusStyles';
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: '전체' },
@@ -166,13 +167,20 @@ const ClearButton = styled.button`
   cursor: pointer;
   transition: background-color 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #fff1f1;
+  }
+
+  &:disabled {
+    border-color: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
   }
 `;
 
 export default function Todos() {
-  const { todos, sortTodos, clearDone } = useTodos();
+  const { todos, isLoading, error, sortTodos, clearDone } = useTodos();
+  const [isClearing, setIsClearing] = useState(false);
   // 필터는 state가 아니라 URL의 :filter 값으로 정한다 (/todos/done → 'done')
   const params = useParams();
   const navigate = useNavigate();
@@ -215,17 +223,45 @@ export default function Todos() {
     };
   }, [remainingCount]);
 
+  const handleClearDone = async () => {
+    setIsClearing(true);
+    await clearDone(); // 실패하면 Context에서 경고창을 띄운다
+    setIsClearing(false);
+  };
+
   // /todos/abc처럼 정해지지 않은 필터로 들어오면 전체 필터로 보낸다
   if (!isValidFilter) {
     return <Navigate to="/todos/all" replace />;
   }
 
+  const pageHeader = (
+    <PageHeader>
+      <Title>오늘의 할 일</Title>
+      <Description>작은 일부터 하나씩 완료해 보세요.</Description>
+    </PageHeader>
+  );
+
+  if (isLoading) {
+    return (
+      <section>
+        {pageHeader}
+        <LoadingMessage>할 일을 불러오는 중...</LoadingMessage>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section>
+        {pageHeader}
+        <LoadError role="alert">{error}</LoadError>
+      </section>
+    );
+  }
+
   return (
     <section>
-      <PageHeader>
-        <Title>오늘의 할 일</Title>
-        <Description>작은 일부터 하나씩 완료해 보세요.</Description>
-      </PageHeader>
+      {pageHeader}
 
       <TodoAddForm />
 
@@ -275,8 +311,8 @@ export default function Todos() {
       )}
 
       {doneCount > 0 && (
-        <ClearButton type="button" onClick={clearDone}>
-          완료한 할 일 지우기 ({doneCount})
+        <ClearButton type="button" onClick={handleClearDone} disabled={isClearing}>
+          {isClearing ? '지우는 중...' : `완료한 할 일 지우기 (${doneCount})`}
         </ClearButton>
       )}
     </section>

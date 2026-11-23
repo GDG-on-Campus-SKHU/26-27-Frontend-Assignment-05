@@ -50,24 +50,30 @@ export default function TodoAddForm() {
   const { filter } = useParams();
   const navigate = useNavigate();
   const [text, setText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setText(e.target.value);
   };
 
-  const submitHandler = (e: FormEvent<HTMLFormElement>) => {
+  const submitHandler = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (text.trim() === '') return;
+    if (text.trim() === '' || isSubmitting) return;
 
-    addTodo(text);
-    setText('');
-    if (filter !== 'all') navigate('/todos/all');
+    setIsSubmitting(true);
+    const isAdded = await addTodo(text);
+    setIsSubmitting(false);
+
+    if (isAdded) {
+      setText('');
+      if (filter !== 'all') navigate('/todos/all');
+    }
     inputRef.current?.focus(); // 추가한 뒤에도 바로 다음 할 일을 입력할 수 있도록
   };
 
   return (
-    <Form onSubmit={submitHandler}>
+    <Form onSubmit={submitHandler} aria-busy={isSubmitting}>
       <Input
         ref={inputRef}
         type="text"
@@ -76,8 +82,8 @@ export default function TodoAddForm() {
         value={text}
         onChange={handleChange}
       />
-      <AddButton type="submit" disabled={text.trim() === ''}>
-        추가
+      <AddButton type="submit" disabled={text.trim() === '' || isSubmitting}>
+        {isSubmitting ? '추가 중...' : '추가'}
       </AddButton>
     </Form>
   );
