@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import styled from "styled-components";
-import { fakeLoginApi } from "../api/auth";
+import { loginApi } from "../api/auth";
 import { useAuthStore } from "../store/useAuthStore";
 import {
   Card,
@@ -114,7 +114,8 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const { user, accessToken } = await fakeLoginApi(
+      // 가짜 API 대신 실제 백엔드 서버(POST /auth/login)로 로그인 요청
+      const { user, accessToken } = await loginApi(
         form.userId,
         form.password,
       );
@@ -173,6 +174,7 @@ export default function Login() {
                 <circle cx="12" cy="7" r="4" />
               </svg>
             </LeftIcon>
+            {/* 서버의 400/401 오류 문구를 그대로 표시하기 위해 HTML5 required 검증은 제거 */}
             <IconInput
               id="userId"
               type="text"
@@ -180,7 +182,6 @@ export default function Login() {
               value={form.userId}
               onChange={handleChange}
               placeholder="아이디를 입력하세요"
-              required
             />
           </InputWrapper>
         </Field>
@@ -212,7 +213,6 @@ export default function Login() {
               onChange={handleChange}
               placeholder="비밀번호를 입력하세요"
               $hasRightIcon
-              required
             />
             <EyeButton
               type="button"

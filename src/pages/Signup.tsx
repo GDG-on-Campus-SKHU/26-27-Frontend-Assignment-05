@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import type { ChangeEvent, ClipboardEvent, FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { fakeSignupApi } from "../api/auth";
+import styled from "styled-components";
+import { signupApi, checkUserIdApi } from "../api/auth";
 import { useAuthStore } from "../store/useAuthStore";
 import type { Track } from "../types/user";
 import {
@@ -21,6 +22,48 @@ import {
   BottomLink,
 } from "../styles/formStyles";
 
+const IdInputRow = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+`;
+
+const IdInput = styled(Input)`
+  flex: 1;
+  min-width: 0;
+`;
+
+const CheckIdButton = styled.button`
+  padding: 0 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background-color: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+    color: #2563eb;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+`;
+
+const IdCheckMessage = styled.p<{ $available: boolean }>`
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: ${({ $available }) => ($available ? "#16a34a" : "#dc2626")};
+`;
+
 interface SignupFormState {
   username: string;
   password: string;
@@ -30,6 +73,8 @@ interface SignupFormState {
   agreed: boolean;
 }
 
+type IdCheckStatus = "idle" | "available" | "unavailable";
+
 export default function Signup() {
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
@@ -37,7 +82,6 @@ export default function Signup() {
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordConfirmRef = useRef<HTMLInputElement>(null);
 
-  // 모든 폼 입력값을 객체 상태 하나로 관리 (도전 과제 1: 비밀번호 보기 포함)
   const [form, setForm] = useState<SignupFormState>({
     username: "",
     password: "",
@@ -50,6 +94,11 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // [도전 과제 2] 아이디 중복 확인 상태 (idle: 미확인, available: 사용 가능, unavailable: 불가)
+  const [isCheckingId, setIsCheckingId] = useState(false);
+  const [idCheckStatus, setIdCheckStatus] = useState<IdCheckStatus>("idle");
+  const [idCheckMessage, setIdCheckMessage] = useState("");
+
   // 모든 입력 요소 공통 핸들러
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -57,6 +106,39 @@ export default function Signup() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+
+    // 아이디를 다시 고치면 중복 확인 결과를 초기화한다
+    if (name === "username") {
+      setIdCheckStatus("idle");
+      setIdCheckMessage("");
+    }
+  };
+
+  // [도전 과제 2] 아이디 중복 확인 요청 (GET /auth/check-id?userId=...)
+  const handleCheckId = async () => {
+    setIsCheckingId(true);
+    setIdCheckMessage("");
+    setError("");
+
+    try {
+      const { available } = await checkUserIdApi(form.username);
+      if (available) {
+        setIdCheckStatus("available");
+        setIdCheckMessage("사용할 수 있는 아이디입니다.");
+      } else {
+        setIdCheckStatus("unavailable");
+        setIdCheckMessage("이미 사용 중인 아이디입니다.");
+      }
+    } catch (err) {
+      // 서버가 보낸 400(4자 미만 등) 또는 네트워크 오류 문구를 그대로 표시
+      const message =
+        err instanceof Error ? err.message : "아이디 중복 확인에 실패했습니다.";
+      setIdCheckStatus("unavailable");
+      setIdCheckMessage(message);
+      usernameRef.current?.focus();
+    } finally {
+      setIsCheckingId(false);
+    }
   };
 
   // 비밀번호 확인 칸 붙여넣기 방지
@@ -69,6 +151,13 @@ export default function Signup() {
     e.preventDefault();
     setError("");
 
+    // [도전 과제 2] 사용 가능한 아이디로 중복 확인을 통과하지 않은 경우 제출 차단
+    if (idCheckStatus !== "available") {
+      setError("아이디 중복 확인을 해 주세요.");
+      usernameRef.current?.focus();
+      return;
+    }
+
     if (form.password !== form.passwordConfirm) {
       window.alert("비밀번호가 일치하지 않습니다.");
       passwordConfirmRef.current?.focus();
@@ -77,7 +166,8 @@ export default function Signup() {
 
     setIsLoading(true);
     try {
-      const { user, accessToken } = await fakeSignupApi(
+      // 가짜 API 대신 실제 백엔드 서버(POST /auth/signup)로 회원가입 요청
+      const { user, accessToken } = await signupApi(
         form.username,
         form.password,
         form.interest,
@@ -104,23 +194,35 @@ export default function Signup() {
       <Subtitle>서비스 이용을 위해 회원 정보를 입력해 주세요.</Subtitle>
 
       <Form onSubmit={handleSubmit}>
-        {/* 아이디 */}
+        {/* 아이디 + 중복 확인 */}
         <Field>
           <Label htmlFor="username">아이디</Label>
-          <Input
-            ref={usernameRef}
-            id="username"
-            type="text"
-            name="username"
-            value={form.username}
-            onChange={handleChange}
-            placeholder="4~12자 영문, 숫자"
-            required
-            minLength={4}
-            maxLength={12}
-            pattern="[A-Za-z0-9]{4,12}"
-            title="아이디는 4~12자의 영문과 숫자만 입력해 주세요."
-          />
+          <IdInputRow>
+            <IdInput
+              ref={usernameRef}
+              id="username"
+              type="text"
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              placeholder="4~12자 영문, 숫자"
+            />
+            <CheckIdButton
+              type="button"
+              onClick={handleCheckId}
+              disabled={isCheckingId || isLoading}
+            >
+              {isCheckingId ? "확인 중..." : "중복 확인"}
+            </CheckIdButton>
+          </IdInputRow>
+          {idCheckMessage && (
+            <IdCheckMessage
+              $available={idCheckStatus === "available"}
+              role="status"
+            >
+              {idCheckMessage}
+            </IdCheckMessage>
+          )}
         </Field>
 
         {/* 비밀번호 */}
@@ -133,8 +235,6 @@ export default function Signup() {
             value={form.password}
             onChange={handleChange}
             placeholder="8자 이상 입력"
-            required
-            minLength={8}
           />
         </Field>
 
@@ -150,11 +250,10 @@ export default function Signup() {
             onChange={handleChange}
             onPaste={handleBlockPaste}
             placeholder="비밀번호 재입력"
-            required
           />
         </Field>
 
-        {/* 도전 과제 1: 비밀번호 보기 체크박스 */}
+        {/* 비밀번호 보기 체크박스 */}
         <CheckboxLabel>
           <input
             type="checkbox"
@@ -203,11 +302,7 @@ export default function Signup() {
           이용약관에 동의합니다.
         </CheckboxLabel>
 
-        <SubmitButton
-          type="submit"
-          disabled={!canSubmit}
-          $active={canSubmit}
-        >
+        <SubmitButton type="submit" disabled={!canSubmit} $active={canSubmit}>
           {isLoading ? "가입 중..." : "가입하기"}
         </SubmitButton>
       </Form>

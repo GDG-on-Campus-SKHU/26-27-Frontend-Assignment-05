@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useParams, useNavigate, Navigate } from "react-router";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import type { Filter } from "../types";
 import { useTodos } from "../contexts/TodoContext";
 import TodoForm from "../components/TodoForm";
@@ -13,6 +13,88 @@ const tabs: { value: Filter; label: string }[] = [
   { value: "active", label: "진행 중" },
   { value: "done", label: "완료" },
 ];
+
+const spin = keyframes`
+  to {
+    transform: rotate(360deg);
+  }
+`;
+
+const StatusBox = styled.div`
+  padding: 64px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+`;
+
+const Spinner = styled.div`
+  width: 36px;
+  height: 36px;
+  margin-bottom: 16px;
+  border: 3.5px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: ${spin} 0.75s linear infinite;
+`;
+
+const StatusTitle = styled.p`
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+`;
+
+const StatusSub = styled.p`
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #64748b;
+`;
+
+const ErrorBox = styled.div`
+  padding: 56px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+`;
+
+const ErrorIconBadge = styled.div`
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background-color: #fee2e2;
+  color: #dc2626;
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ErrorTitle = styled.p`
+  font-size: 17px;
+  font-weight: 700;
+  color: #991b1b;
+  margin: 0;
+`;
+
+const ErrorMessageText = styled.p`
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #dc2626;
+`;
 
 const Summary = styled.section`
   display: flex;
@@ -187,16 +269,23 @@ const ClearButton = styled.button`
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #ffe4e6;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 `;
 
 export default function TodoPage() {
   const {
     todos,
+    isLoading,
+    error,
     isNameAsc,
     isTimeAsc,
     sortByName,
@@ -205,6 +294,9 @@ export default function TodoPage() {
   } = useTodos();
   const { filter } = useParams<{ filter: string }>();
   const navigate = useNavigate();
+
+  // [완료한 할 일 지우기] 요청 중 버튼 비활성화 및 "지우는 중..." 표시를 위한 상태
+  const [isClearing, setIsClearing] = useState(false);
 
   // 파생 데이터 계산
   const doneCount = todos.filter((todo) => todo.done).length;
@@ -215,12 +307,16 @@ export default function TodoPage() {
 
   // 할 일 페이지에서만 남은 할 일 수에 따라 브라우저 탭 제목 변경
   useEffect(() => {
-    document.title =
-      activeCount > 0 ? `할 일 ${activeCount}개 남음` : "오늘의 할 일";
+    if (isLoading || error) {
+      document.title = "오늘의 할 일";
+    } else {
+      document.title =
+        activeCount > 0 ? `할 일 ${activeCount}개 남음` : "오늘의 할 일";
+    }
     return () => {
       document.title = "Todo App";
     };
-  }, [activeCount]);
+  }, [activeCount, isLoading, error]);
 
   // 유효하지 않은 필터 URL은 /todos/all로 이동
   const isValidFilter =
@@ -228,6 +324,38 @@ export default function TodoPage() {
   if (!isValidFilter) {
     return <Navigate to="/todos/all" replace />;
   }
+
+  // 검사 순서: 로딩 → 오류 → 데이터 (요구사항에 따라 순서를 지켜 분기 렌더링)
+  if (isLoading) {
+    return (
+      <StatusBox role="status">
+        <Spinner aria-hidden="true" />
+        <StatusTitle>할 일을 불러오는 중...</StatusTitle>
+        <StatusSub>서버에서 목록을 가져오고 있습니다.</StatusSub>
+      </StatusBox>
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorBox role="alert">
+        <ErrorIconBadge aria-hidden="true">!</ErrorIconBadge>
+        <ErrorTitle>할 일을 불러오지 못했습니다</ErrorTitle>
+        <ErrorMessageText>{error}</ErrorMessageText>
+      </ErrorBox>
+    );
+  }
+
+  // 완료 항목 일괄 삭제 요청 중 중복 클릭 방지
+  const handleClearDone = async () => {
+    if (isClearing) return;
+    setIsClearing(true);
+    try {
+      await clearDone();
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const filteredTodos = todos.filter((todo) => {
     if (filter === "active") return !todo.done;
@@ -344,8 +472,12 @@ export default function TodoPage() {
 
       {/* 완료한 할 일 일괄 삭제 */}
       {doneCount > 0 && (
-        <ClearButton type="button" onClick={clearDone}>
-          완료한 할 일 지우기 ({doneCount})
+        <ClearButton
+          type="button"
+          disabled={isClearing}
+          onClick={handleClearDone}
+        >
+          {isClearing ? "지우는 중..." : `완료한 할 일 지우기 (${doneCount})`}
         </ClearButton>
       )}
     </div>

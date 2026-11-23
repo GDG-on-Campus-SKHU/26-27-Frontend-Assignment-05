@@ -102,7 +102,10 @@ const MenuLink = styled(NavLink)`
 `;
 
 const UserInfo = styled.span`
-  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
   font-size: 14px;
   font-weight: 700;
   color: #0f172a;
@@ -111,6 +114,14 @@ const UserInfo = styled.span`
   border-radius: 8px;
   white-space: nowrap;
   flex-shrink: 0;
+`;
+
+const HeaderAvatar = styled.img`
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #cbd5e1;
 `;
 
 const LogoutButton = styled.button`
@@ -143,6 +154,10 @@ const Main = styled.main`
 
 export default function Layout() {
   const user = useAuthStore((state) => state.user);
+  // 마이페이지에서 등록한 프로필 사진을 상단 헤더 아바타에도 실시간 반영
+  const profilePhoto = useAuthStore((state) =>
+    state.user ? state.profilePhotos[state.user.userId] : undefined,
+  );
   const logout = useAuthStore((state) => state.logout);
 
   return (
@@ -177,7 +192,15 @@ export default function Layout() {
             {user ? (
               <>
                 <MenuLink to="/mypage">마이페이지</MenuLink>
-                <UserInfo>{user.userId}님</UserInfo>
+                <UserInfo>
+                  {profilePhoto && (
+                    <HeaderAvatar
+                      src={profilePhoto}
+                      alt={`${user.userId} 프로필`}
+                    />
+                  )}
+                  {user.userId}님
+                </UserInfo>
                 <LogoutButton type="button" onClick={logout}>
                   로그아웃
                 </LogoutButton>

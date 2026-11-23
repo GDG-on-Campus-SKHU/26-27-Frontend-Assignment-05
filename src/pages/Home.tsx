@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import styled from "styled-components";
 import { useAuthStore } from "../store/useAuthStore";
+import TodoSummary from "../components/TodoSummary";
 
 const PageContainer = styled.div`
   display: flex;
@@ -260,6 +261,8 @@ export default function Home() {
             <Description>
               {user.userId}님, 오늘 할 일을 확인해 보세요.
             </Description>
+            {/* [도전 과제 1] 훅은 조건문 안에서 호출할 수 없으므로 로그인 시에만 별도 컴포넌트로 마운트 */}
+            <TodoSummary />
             <LinkGroup>
               <ActionLink to="/todos/all" $primary>
                 할 일 관리하기

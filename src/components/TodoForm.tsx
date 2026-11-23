@@ -24,6 +24,11 @@ const Input = styled.input`
   &:focus {
     border-color: #3b82f6;
   }
+
+  &:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
+  }
 `;
 
 const DateInput = styled.input`
@@ -40,6 +45,11 @@ const DateInput = styled.input`
   &:focus {
     border-color: #3b82f6;
   }
+
+  &:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
+  }
 `;
 
 const SubmitButton = styled.button<{ $active: boolean }>`
@@ -50,6 +60,7 @@ const SubmitButton = styled.button<{ $active: boolean }>`
   color: ${({ $active }) => ($active ? "#ffffff" : "#64748b")};
   font-size: 15px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: ${({ $active }) => ($active ? "pointer" : "not-allowed")};
   transition: background-color 0.15s ease;
 
@@ -65,22 +76,32 @@ export default function TodoForm() {
 
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
+  // 추가 요청 대기 중 "추가 중..." 표시 및 중복 제출 방지용 상태
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isValid = text.trim().length > 0;
+  // 빈 할 일 제출 시 서버의 400 오류 응답도 확인할 수 있도록 요청 중일 때만 버튼 비활성화
+  const canSubmit = !isSubmitting;
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed) return;
+    if (isSubmitting) return;
 
-    addTodo(trimmed, dueDate || undefined);
-    setText("");
-    setDueDate("");
-    inputRef.current?.focus();
+    setIsSubmitting(true);
+    try {
+      const ok = await addTodo(text, dueDate || undefined);
+      // 추가에 성공했을 때만 입력창을 비우고, 실패 시 입력한 내용을 그대로 유지한다
+      if (ok) {
+        setText("");
+        setDueDate("");
+        inputRef.current?.focus();
 
-    if (filter !== "all") {
-      navigate("/todos/all");
+        if (filter !== "all") {
+          navigate("/todos/all");
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -92,15 +113,17 @@ export default function TodoForm() {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="새로운 할 일을 입력하세요"
+        disabled={isSubmitting}
       />
       <DateInput
         type="date"
         value={dueDate}
         onChange={(e) => setDueDate(e.target.value)}
         aria-label="마감일"
+        disabled={isSubmitting}
       />
-      <SubmitButton type="submit" disabled={!isValid} $active={isValid}>
-        추가
+      <SubmitButton type="submit" disabled={!canSubmit} $active={canSubmit}>
+        {isSubmitting ? "추가 중..." : "추가"}
       </SubmitButton>
     </Form>
   );
